@@ -13,7 +13,7 @@ const PDFList = () => {
 
   const fetchPDFs = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/pdfs');
+      const response = await axios.get('http://localhost:5002/api/pdfs');
       setPdfs(response.data);
     } catch (err) {
       setError('Failed to load PDFs. Please check if the server is running.');
@@ -37,7 +37,7 @@ const PDFList = () => {
     setError('');
 
     try {
-      await axios.post('http://localhost:5000/api/upload', formData, {
+      await axios.post('http://localhost:5002/api/upload', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }

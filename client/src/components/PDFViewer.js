@@ -58,7 +58,7 @@ export default function App() {
   // Load the PDF URL
   useEffect(() => {
     if (filename) {
-      const url = `http://localhost:5000/uploads/${filename}`;
+      const url = `http://localhost:5002/uploads/${filename}`;
       setUrl(url);
     }
   }, [filename]);
@@ -71,7 +71,7 @@ export default function App() {
       try {
         setIsLoading(true);
         const response = await axios.get(
-          `http://localhost:5000/api/highlights/${encodeURIComponent(filename)}`
+          `http://localhost:5002/api/highlights/${encodeURIComponent(filename)}`
         );
         
         if (response.data && Array.isArray(response.data)) {
@@ -96,7 +96,7 @@ export default function App() {
       
       try {
         await axios.post(
-          `http://localhost:5000/api/highlights/${encodeURIComponent(filename)}`,
+          `http://localhost:5002/api/highlights/${encodeURIComponent(filename)}`,
           highlights
         );
         console.log("Highlights saved successfully");
@@ -120,7 +120,7 @@ export default function App() {
     setHighlights([]);
     try {
       await axios.post(
-        `http://localhost:5000/api/highlights/${encodeURIComponent(filename)}`,
+        `http://localhost:5002/api/highlights/${encodeURIComponent(filename)}`,
         []
       );
       console.log("Highlights cleared successfully");
