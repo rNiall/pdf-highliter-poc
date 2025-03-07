@@ -1,0 +1,139 @@
+diff --git a/node_modules/react-pdf-highlighter/dist/src/components/PdfHighlighter.js b/node_modules/react-pdf-highlighter/dist/src/components/PdfHighlighter.js
+index d64a8a4..dddd979 100644
+--- a/node_modules/react-pdf-highlighter/dist/src/components/PdfHighlighter.js
++++ b/node_modules/react-pdf-highlighter/dist/src/components/PdfHighlighter.js
+@@ -110,10 +110,45 @@ class PdfHighlighter extends PureComponent {
+       this.renderHighlightLayers();
+     });
+     __publicField(this, "scrollTo", (highlight) => {
++      if (!this.viewer || !this.viewer.pagesCount) {
++        // If viewer isn't ready yet, queue this scroll for later
++        console.log("Viewer not ready, delaying scroll");
++        setTimeout(() => this.scrollTo(highlight), 100);
++        return;
++      }
++    
+       const { pageNumber, boundingRect, usePdfCoordinates } = highlight.position;
++      
++      // Ensure the page is valid
++      if (pageNumber < 1 || pageNumber > this.viewer.pagesCount) {
++        console.error(`Invalid page number: ${pageNumber}`);
++        return;
++      }
++      
++      // Remove scroll listener temporarily to prevent interference
+       this.viewer.container.removeEventListener("scroll", this.onScroll);
+-      const pageViewport = this.viewer.getPageView(pageNumber - 1).viewport;
++      
++      // Get page view and ensure it's available
++      const pageView = this.viewer.getPageView(pageNumber - 1);
++      if (!pageView || !pageView.viewport) {
++        console.error("Page view or viewport not available");
++        setTimeout(() => this.scrollTo(highlight), 100);
++        return;
++      }
++      
++      const pageViewport = pageView.viewport;
+       const scrollMargin = 10;
++      
++      // Convert coordinates more carefully
++      let scaledCoords;
++      try {
++        scaledCoords = scaledToViewport(boundingRect, pageViewport, usePdfCoordinates);
++      } catch (error) {
++        console.error("Error converting coordinates:", error);
++        scaledCoords = boundingRect;
++      }
++      
++      // Use scrollPageIntoView for PDF-native scrolling
+       this.viewer.scrollPageIntoView({
+         pageNumber,
+         destArray: [
+@@ -121,17 +156,21 @@ class PdfHighlighter extends PureComponent {
+           { name: "XYZ" },
+           ...pageViewport.convertToPdfPoint(
+             0,
+-            scaledToViewport(boundingRect, pageViewport, usePdfCoordinates).top - scrollMargin
++            scaledCoords.top - scrollMargin
+           ),
+           0
+         ]
+       });
++      
++      // Update state to show this highlight is being scrolled to
+       this.setState(
+         {
+           scrolledToHighlightId: highlight.id
+         },
+         () => this.renderHighlightLayers()
+       );
++      
++      // Add the scroll listener back after a slight delay
+       setTimeout(() => {
+         this.viewer.container.addEventListener("scroll", this.onScroll);
+       }, 100);
+@@ -248,8 +287,25 @@ class PdfHighlighter extends PureComponent {
+       this.init();
+       return;
+     }
++    
++    // If highlights changed, re-render highlight layers
+     if (prevProps.highlights !== this.props.highlights) {
+       this.renderHighlightLayers();
++      
++      // Check if we need to scroll to a highlight (if one is specified via props)
++      const { scrollToHighlightId } = this.props;
++      if (scrollToHighlightId && scrollToHighlightId !== this.state.scrolledToHighlightId) {
++        const highlight = this.props.highlights.find(h => h.id === scrollToHighlightId);
++        if (highlight) {
++          // Wait a bit to ensure page rendering is complete
++          setTimeout(() => this.scrollTo(highlight), 100);
++        }
++      }
++    }
++    
++    // Handle scale value changes
++    if (prevProps.pdfScaleValue !== this.props.pdfScaleValue) {
++      this.handleScaleValue();
+     }
+   }
+   async init() {
+@@ -260,21 +316,36 @@ class PdfHighlighter extends PureComponent {
+       eventBus,
+       externalLinkTarget: 2
+     });
++    
+     if (!this.containerNodeRef.current) {
+-      throw new Error("!");
++      throw new Error("Container element not found!");
+     }
++    
+     this.viewer = this.viewer || new pdfjs.PDFViewer({
+       container: this.containerNodeRef.current,
+       eventBus,
+-      // enhanceTextSelection: true, // deprecated. https://github.com/mozilla/pdf.js/issues/9943#issuecomment-409369485
+       textLayerMode: 2,
+       removePageBorders: true,
+       linkService
+     });
++    
++    // Explicitly assign eventBus to viewer
++    this.viewer.eventBus = eventBus;
++    
+     linkService.setDocument(pdfDocument);
+     linkService.setViewer(this.viewer);
+     this.viewer.setDocument(pdfDocument);
++    
++    // Make sure to attach event listeners before proceeding
+     this.attachRef(eventBus);
++    
++    // Wait for pages to be initialized
++    return new Promise(resolve => {
++      eventBus.on("pagesloaded", () => {
++        this.renderHighlightLayers();
++        resolve();
++      });
++    });
+   }
+   componentWillUnmount() {
+     this.unsubscribe();

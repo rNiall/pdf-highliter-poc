@@ -1,0 +1,11 @@
+{
+    "scripts": {
+      "install-all": "npm install && cd server && npm install && cd ../client && npm install",
+      "start": "concurrently \"npm run server\" \"npm run client\"",
+      "server": "cd server && node index.js",
+      "client": "cd client && npm start"
+    },
+    "dependencies": {
+      "concurrently": "^8.0.1"
+    }
+  }
